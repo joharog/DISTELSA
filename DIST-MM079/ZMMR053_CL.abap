@@ -1,0 +1,86 @@
+*&---------------------------------------------------------------------*
+*& Include          ZMMR053_CL
+*&---------------------------------------------------------------------*
+
+*--- Para el ALV OO report
+DATA: GT_TABLE_ALV  TYPE REF TO CL_SALV_TABLE,
+      GT_TABLE_ALV_LOG  TYPE REF TO CL_SALV_TABLE,
+      GO_SELECTIONS TYPE REF TO CL_SALV_SELECTIONS,
+      G_SORT        TYPE REF TO CL_SALV_SORTS,
+      GO_FUNCTIONS  TYPE REF TO CL_SALV_FUNCTIONS,
+      GO_DSP_SET    TYPE REF TO CL_SALV_DISPLAY_SETTINGS,
+      GO_COLUMNS    TYPE REF TO CL_SALV_COLUMNS_TABLE,
+      GO_COLUMN     TYPE REF TO CL_SALV_COLUMN_TABLE,
+      GO_HEADER     TYPE REF TO CL_SALV_FORM_LAYOUT_GRID,
+      GO_H_LABEL    TYPE REF TO CL_SALV_FORM_LABEL,
+      GO_LAYOUT     TYPE REF TO CL_SALV_LAYOUT,
+      GS_COLOR      TYPE LVC_S_COLO,
+      GO_AGG        TYPE REF TO CL_SALV_AGGREGATIONS,
+      GS_LAYOUT     TYPE LVC_S_LAYO.
+
+DATA: GO_KEY    TYPE SALV_S_LAYOUT_KEY,
+      GO_EVENTS TYPE REF TO CL_SALV_EVENTS_TABLE.
+
+*----------------------------------------------------------------------*
+CLASS GCL_HANDLE_EVENTS DEFINITION.
+  PUBLIC SECTION.
+
+    METHODS ON_ADDED_FUNCTION
+      FOR EVENT IF_SALV_EVENTS_FUNCTIONS~ADDED_FUNCTION
+                OF CL_SALV_EVENTS_TABLE
+      IMPORTING E_SALV_FUNCTION.
+
+    METHODS M_LINK_CLICK   FOR EVENT LINK_CLICK
+                OF CL_SALV_EVENTS_TABLE
+      IMPORTING ROW
+                COLUMN.
+
+ENDCLASS.
+
+DATA: GCL_EVENT_HANDLER TYPE REF TO GCL_HANDLE_EVENTS.
+
+*----------------------------------------------------------------------*
+CLASS GCL_HANDLE_EVENTS IMPLEMENTATION.
+  METHOD ON_ADDED_FUNCTION.
+    CASE SY-UCOMM.
+      WHEN '&CRT_POTST'.
+        CLEAR GT_LOG[].
+        GV_TESTRUN = 'X'.
+        PERFORM F_CRT_PO USING GV_TESTRUN.
+        IF GT_LOG[] IS NOT INITIAL.
+          PERFORM F_OUT_ALV_LOG.
+        ENDIF.
+        GT_TABLE_ALV->REFRESH( ).
+      WHEN '&CRT_PO'.
+        CLEAR GT_LOG[].
+        GV_TESTRUN = ''.
+        PERFORM F_CRT_PO USING GV_TESTRUN.
+        IF GT_LOG[] IS NOT INITIAL.
+          PERFORM F_OUT_ALV_LOG.
+        ENDIF.
+        GT_TABLE_ALV->REFRESH( ).
+      WHEN '&SELALL'.
+        PERFORM F_SELECT_ALL_MANUAL.
+        GT_TABLE_ALV->REFRESH( ).
+      WHEN '&UNSELALL'.
+        PERFORM F_DESELECT_ALL_MANUAL.
+        GT_TABLE_ALV->REFRESH( ).
+    ENDCASE.
+  ENDMETHOD.                    "on_added_function
+  METHOD M_LINK_CLICK.
+    FIELD-SYMBOLS <LFS_ITAB> TYPE TY_OUT.
+    CASE COLUMN.
+      WHEN 'CHECK'.
+        READ TABLE GT_OUT ASSIGNING <LFS_ITAB> INDEX ROW.
+        IF SY-SUBRC = 0.
+*--- validacion con el check
+          IF <LFS_ITAB>-CHECK IS INITIAL.
+            <LFS_ITAB>-CHECK = GC_CHAR_X.
+          ELSE.
+            CLEAR <LFS_ITAB>-CHECK.
+          ENDIF.
+        ENDIF.
+        GT_TABLE_ALV->REFRESH( ).
+    ENDCASE.
+  ENDMETHOD.
+ENDCLASS.                    "GCL_HANDLE_EVENTS IMPLEMENTATION
